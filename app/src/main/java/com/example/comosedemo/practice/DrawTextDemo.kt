@@ -3,17 +3,21 @@ package com.example.comosedemo.practice
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
+import android.widget.Toast
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.toColorInt
@@ -34,6 +38,11 @@ class DrawTextDemo @JvmOverloads constructor(
         textSize = 80f
         color = "#000000".toColorInt()
     }
+    private val borderPaint = Paint().apply {
+        color = Color.Magenta.toArgb() // 边框颜色
+        style = Paint.Style.STROKE // 设置为空心
+        strokeWidth = 10f // 边框宽度
+    }
 
     private val targetText = "18802"
     private val text = "今日步数 $targetText 步"
@@ -52,27 +61,46 @@ class DrawTextDemo @JvmOverloads constructor(
             paint,
             desiredWidth
         ).setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setIncludePad(false)
             .build()
 
-        spannableString.setSpan(
-            ForegroundColorSpan(Color.Red.toArgb()),
-            targetStartIndex,
-            targetEndIndex,
-            Spannable.SPAN_EXCLUSIVE_INCLUSIVE
-        )
-        spannableString.setSpan(
-            StyleSpan(Typeface.BOLD),
-            targetStartIndex,
-            targetEndIndex,
-            Spannable.SPAN_EXCLUSIVE_INCLUSIVE
-        )
-        spannableString.setSpan(
-            // 设置字号为原来的1.5倍
-            RelativeSizeSpan(1.5f),
-            targetStartIndex,
-            targetEndIndex,
-            Spannable.SPAN_EXCLUSIVE_INCLUSIVE
-        )
+        spannableString.apply {
+            val flag = Spannable.SPAN_EXCLUSIVE_INCLUSIVE
+
+            setSpan(
+                ForegroundColorSpan(Color.Red.toArgb()),
+                targetStartIndex,
+                targetEndIndex,
+                flag
+            )
+            setSpan(
+                StyleSpan(Typeface.BOLD),
+                targetStartIndex,
+                targetEndIndex,
+                flag
+            )
+            setSpan(
+                // 设置字号为原来的1.5倍
+                RelativeSizeSpan(1.5f),
+                targetStartIndex,
+                targetEndIndex,
+                flag
+            )
+            setSpan(
+                object : ClickableSpan() {
+                    override fun onClick(widget: View) {
+                        Toast.makeText(context, "步数: $targetText", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun updateDrawState(ds: TextPaint) {
+                        ds.isUnderlineText = false
+                    }
+                },
+                targetStartIndex,
+                targetEndIndex,
+                flag
+            )
+        }
     }
 
     @SuppressLint("DrawAllocation")
@@ -83,6 +111,13 @@ class DrawTextDemo @JvmOverloads constructor(
 
         // 绘制文本到画布上，写法一，简便写法
         canvas.withTranslation(50f, 50f) {
+            drawRect(
+                0f,
+                -10f,
+                staticLayout.width.toFloat() * 1.2f,
+                staticLayout.height.toFloat() * 1.2f,
+                borderPaint
+            )
             staticLayout.draw(this)
         }
         // 写法二，常规写法
@@ -90,4 +125,40 @@ class DrawTextDemo @JvmOverloads constructor(
         //staticLayout.draw(canvas)
         //canvas.restore()
     }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_UP -> {
+                val x = event.x - 50f
+                val y = event.y - 50f
+                if (x >= 0 && x <= staticLayout.width && y >= 0 && y <= staticLayout.height) {
+                    val line = staticLayout.getLineForVertical(y.toInt())
+                    if (line >= 0) {
+                        val offset = staticLayout.getOffsetForHorizontal(line, x)
+                        if (offset >= 0 && offset <= spannableString.length) {
+                            spannableString.getSpans(offset, offset, ClickableSpan::class.java)
+                                ?.takeIf {
+                                    it.isNotEmpty()
+                                }?.let {
+                                    it[0].onClick(this)
+                                    return true
+                                }
+                        }
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_DOWN -> {
+                val x = event.x - 50f
+                val y = event.y - 50f
+                if (x >= 0 && x <= staticLayout.width && y >= 0 && y <= staticLayout.height) {
+                    // 如果触摸点可能在文本区域内，返回 true 以继续接收事件
+                    return true
+                }
+            }
+        }
+
+        return super.onTouchEvent(event)
+    }
+
 }
