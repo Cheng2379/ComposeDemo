@@ -129,6 +129,10 @@ class DrawTextDemo @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_UP -> {
+                // 虽然在canvas的withTranslation作用域中将整个文本和边框向坐标圆点的右下方平移了50个像素点,
+                // 点击事件是在用户实际触摸的屏幕位置生效的，这个位置是相对于 View 的 (0, 0) 点来报告的（即 event.x , event.y ）
+                // StaticLayout 内部的 坐标系 是从 (0, 0) 开始计算的，我们需要将触摸事件的坐标转换到这个 相对坐标系中。
+                // 所以需要将MotionEvent的x, y坐标给恢复到圆点
                 val x = event.x - 50f
                 val y = event.y - 50f
                 if (x >= 0 && x <= staticLayout.width && y >= 0 && y <= staticLayout.height) {
